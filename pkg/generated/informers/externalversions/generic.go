@@ -22,6 +22,7 @@ import (
 	"fmt"
 
 	v1alpha1 "github.com/kubeovn/ces-controller/pkg/apis/kubeovn.io/v1alpha1"
+	snatv1alpha1 "github.com/kubeovn/ces-controller/pkg/apis/snat/v1alpha1"
 	schema "k8s.io/apimachinery/pkg/runtime/schema"
 	cache "k8s.io/client-go/tools/cache"
 )
@@ -61,6 +62,10 @@ func (f *sharedInformerFactory) ForResource(resource schema.GroupVersionResource
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Kubeovn().V1alpha1().NamespaceEgressRules().Informer()}, nil
 	case v1alpha1.SchemeGroupVersion.WithResource("serviceegressrules"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Kubeovn().V1alpha1().ServiceEgressRules().Informer()}, nil
+
+		// Group=snat, Version=v1alpha1
+	case snatv1alpha1.SchemeGroupVersion.WithResource("externaliprules"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Snat().V1alpha1().ExternalIPRules().Informer()}, nil
 
 	}
 

@@ -22,6 +22,8 @@ import (
 	clientset "github.com/kubeovn/ces-controller/pkg/generated/clientset/versioned"
 	kubeovnv1alpha1 "github.com/kubeovn/ces-controller/pkg/generated/clientset/versioned/typed/kubeovn.io/v1alpha1"
 	fakekubeovnv1alpha1 "github.com/kubeovn/ces-controller/pkg/generated/clientset/versioned/typed/kubeovn.io/v1alpha1/fake"
+	snatv1alpha1 "github.com/kubeovn/ces-controller/pkg/generated/clientset/versioned/typed/snat/v1alpha1"
+	fakesnatv1alpha1 "github.com/kubeovn/ces-controller/pkg/generated/clientset/versioned/typed/snat/v1alpha1/fake"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/discovery"
@@ -79,4 +81,9 @@ var _ clientset.Interface = &Clientset{}
 // KubeovnV1alpha1 retrieves the KubeovnV1alpha1Client
 func (c *Clientset) KubeovnV1alpha1() kubeovnv1alpha1.KubeovnV1alpha1Interface {
 	return &fakekubeovnv1alpha1.FakeKubeovnV1alpha1{Fake: &c.Fake}
+}
+
+// SnatV1alpha1 retrieves the SnatV1alpha1Client
+func (c *Clientset) SnatV1alpha1() snatv1alpha1.SnatV1alpha1Interface {
+	return &fakesnatv1alpha1.FakeSnatV1alpha1{Fake: &c.Fake}
 }

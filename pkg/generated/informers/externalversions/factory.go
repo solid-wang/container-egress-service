@@ -26,6 +26,7 @@ import (
 	versioned "github.com/kubeovn/ces-controller/pkg/generated/clientset/versioned"
 	internalinterfaces "github.com/kubeovn/ces-controller/pkg/generated/informers/externalversions/internalinterfaces"
 	kubeovnio "github.com/kubeovn/ces-controller/pkg/generated/informers/externalversions/kubeovn.io"
+	snat "github.com/kubeovn/ces-controller/pkg/generated/informers/externalversions/snat"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	schema "k8s.io/apimachinery/pkg/runtime/schema"
@@ -173,8 +174,13 @@ type SharedInformerFactory interface {
 	WaitForCacheSync(stopCh <-chan struct{}) map[reflect.Type]bool
 
 	Kubeovn() kubeovnio.Interface
+	Snat() snat.Interface
 }
 
 func (f *sharedInformerFactory) Kubeovn() kubeovnio.Interface {
 	return kubeovnio.New(f, f.namespace, f.tweakListOptions)
+}
+
+func (f *sharedInformerFactory) Snat() snat.Interface {
+	return snat.New(f, f.namespace, f.tweakListOptions)
 }
