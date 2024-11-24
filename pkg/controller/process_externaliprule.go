@@ -2,6 +2,7 @@ package controller
 
 import (
 	"fmt"
+	"github.com/kubeovn/ces-controller/pkg/as3"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -82,18 +83,41 @@ func (c *Controller) externalIPRuleSyncHandler(key string, eipRule *snat.Externa
 		}
 	}()
 
-	_ = isDelete
-	// todo
-	//if len(serviceEgressRuleList.Items) == 0 && len(namespaceEgressRuleList.Items) == 0 && len(clusterEgressruleList.Items) == 0 {
-	//	klog.Info("not found Associated rules，don,t neet sync!!")
-	//	return nil
-	//}
-	//err = c.as3Client.As3Request(&serviceEgressRuleList, &namespaceEgressRuleList, &clusterEgressruleList, &externalServicesList, &endpointList, &namespaceList,
-	//	tntcfg, ruleType, isDelete)
-	//if err != nil {
-	//	klog.Error(err)
-	//	return err
-	//}
+	if eipRule != nil {
+		epIPs := c.getEndpointIPsWithExternalIPRule(eipRule)
+
+		var externalIPRuleList = snat.ExternalIPRuleList{
+			Items: []snat.ExternalIPRule{*eipRule},
+		}
+		tntcfg := as3.GetTenantConfigForNamespace(namespace)
+		err = c.as3Client.As3Request(nil, nil, nil, nil, nil, nil, nil,
+			tntcfg, "", isDelete)
+		if err != nil {
+			klog.Error(err)
+			return err
+		}
+	}
+
 	c.recorder.Event(eipRule, corev1.EventTypeNormal, SuccessSynced, MessageResourceSynced)
 	return nil
+}
+
+// getEndpointIPsWithExternalIPRule 根据externalIPRule获取所有endpoint ip
+func (c *Controller) getEndpointIPsWithExternalIPRule(eipRule *snat.ExternalIPRule) []string {
+	var ips []string
+	for _, svcName := range eipRule.Spec.Services {
+		// svcName和epName相同
+		ep, err := c.endpointsLister.Endpoints(eipRule.Namespace).Get(svcName)
+		if err != nil {
+			// 这里报错一般是不存在，忽略即可
+			continue
+		}
+
+		for _, subnet := range ep.Subsets {
+			for _, addr := range subnet.Addresses {
+				ips = append(ips, addr.IP)
+			}
+		}
+	}
+	return ips
 }

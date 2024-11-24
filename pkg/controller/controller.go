@@ -378,7 +378,6 @@ func (c *Controller) isUpdate(old, new interface{}) bool {
 		if !reflect.DeepEqual(oldExt.Spec.Addresses, newExt.Spec.Addresses) {
 			return true
 		}
-
 		if !reflect.DeepEqual(oldExt.Spec.Ports, newExt.Spec.Ports) {
 			return true
 		}
@@ -388,7 +387,9 @@ func (c *Controller) isUpdate(old, new interface{}) bool {
 		if oldEipRule.ResourceVersion == newEipRule.ResourceVersion {
 			return false
 		}
-		// todo
+		if !reflect.DeepEqual(oldEipRule.Spec, newEipRule.Spec) {
+			return true
+		}
 	case *corev1.Endpoints:
 		oldEp := old.(*corev1.Endpoints)
 		newEp := new.(*corev1.Endpoints)

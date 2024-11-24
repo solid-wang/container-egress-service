@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/kubeovn/ces-controller/pkg/apis/kubeovn.io/v1alpha1"
+	snat "github.com/kubeovn/ces-controller/pkg/apis/snat/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/klog/v2"
 )
@@ -20,6 +21,7 @@ type as3Post struct {
 	namespaceEgressList *v1alpha1.NamespaceEgressRuleList
 	clusterEgressList   *v1alpha1.ClusterEgressRuleList
 	externalServiceList *v1alpha1.ExternalServiceList
+	externalIPRuleList  *snat.ExternalIPRuleList
 	endpointList        *corev1.EndpointsList
 	namespaceList       *corev1.NamespaceList
 	tenantConfig        *TenantConfig
@@ -27,6 +29,7 @@ type as3Post struct {
 
 func newAs3Post(serviceEgressList *v1alpha1.ServiceEgressRuleList, namespaceEgressList *v1alpha1.NamespaceEgressRuleList,
 	clusterEgressList *v1alpha1.ClusterEgressRuleList, externalServiceList *v1alpha1.ExternalServiceList,
+	externalIPRuleList *snat.ExternalIPRuleList,
 	endpointList *corev1.EndpointsList, namespaceList *corev1.NamespaceList, tenantConfig *TenantConfig) *as3Post {
 	//init default value, make sure not nil pointer
 	ac := as3Post{
@@ -34,6 +37,7 @@ func newAs3Post(serviceEgressList *v1alpha1.ServiceEgressRuleList, namespaceEgre
 		namespaceEgressList: &v1alpha1.NamespaceEgressRuleList{},
 		clusterEgressList:   &v1alpha1.ClusterEgressRuleList{},
 		externalServiceList: &v1alpha1.ExternalServiceList{},
+		externalIPRuleList:  &snat.ExternalIPRuleList{},
 		endpointList:        &corev1.EndpointsList{},
 		namespaceList:       &corev1.NamespaceList{},
 		tenantConfig:        tenantConfig,
@@ -56,6 +60,9 @@ func newAs3Post(serviceEgressList *v1alpha1.ServiceEgressRuleList, namespaceEgre
 	}
 	if namespaceList != nil {
 		ac.namespaceList = namespaceList
+	}
+	if externalIPRuleList != nil {
+		ac.externalIPRuleList = externalIPRuleList
 	}
 	return &ac
 }
@@ -86,7 +93,7 @@ func newAs3Obj(partition string, shareApplication interface{}) interface{} {
 	tenant[SharedKey] = shareApplication
 	adc[partition] = tenant
 	//remove Common if partition is not Common
-	if IsSupportRouteDomain() && partition != DefaultPartition{
+	if IsSupportRouteDomain() && partition != DefaultPartition {
 		delete(adc, DefaultPartition)
 	}
 	ac[DeclarationKey] = adc
@@ -120,6 +127,64 @@ func (ac *as3Post) processResourcesForAS3(sharedApp as3Application) {
 
 	//Create AS3 Service for virtual server
 	ac.newServiceDecl(sharedApp)
+
+	// create nat policy
+	ac.newNatPolicyDecl(sharedApp)
+}
+
+func (ac *as3Post) newNatPolicyDecl(sharedApp as3Application) {
+	natRuleMap := ac.newNatRulesDecl(sharedApp)
+
+}
+
+func (ac *as3Post) newNatRulesDecl(sharedApp as3Application) map[string][]FirewallAddressList {
+	ret := make(map[string][]FirewallRule)
+
+}
+
+func (ac *as3Post) dealNaRule() []NatRule {
+	var rules []NatRule
+	for _, eipRule := range ac.externalIPRuleList.Items {
+		snatRule := NatRule{
+			Destination: Destination{
+				AddressLists: []Use{
+					{
+						Use: getAs3UsePathForPartition("todo", getAs3NatRuleListAttr(eipRule.Namespace, eipRule.Name, "dest_addr")),
+					},
+				},
+				PortLists: []Use{
+					{
+						Use: getAs3UsePathForPartition("todo", getAs3NatRuleListAttr(eipRule.Namespace, eipRule.Name, "dest_port")),
+					},
+				},
+			},
+			Name:     getAs3NatRuleListAttr(eipRule.Namespace, eipRule.Name, "todo"),
+			Protocol: "todo",
+			Source: Source{
+				AddressLists: []Use{
+					{
+						Use: getAs3UsePathForPartition("todo", getAs3NatRuleListAttr(eipRule.Namespace, eipRule.Name, "src_addr")),
+					},
+				},
+			},
+			SourceTranslation: Use{
+				Use: getAs3UsePathForPartition("todo", getAs3NatRuleListAttr(eipRule.Namespace, eipRule.Name, "src_trans")),
+			},
+		}
+
+		rules = append(rules, snatRule)
+	}
+
+	// 新增auto_map规则
+	rules = append(rules, NatRule{
+		Name:     "k8s_snat_automap",
+		Protocol: "any",
+		SourceTranslation: Use{
+			Use: "automap",
+		},
+	})
+
+	return rules
 }
 
 func (ac *as3Post) newPoliciesDecl(sharedApp as3Application) {
@@ -209,6 +274,13 @@ func newFirewallRuleList() FirewallRuleList {
 	return FirewallRuleList{
 		Class: ClassFirewallRuleList,
 		Rules: []FirewallRule{},
+	}
+}
+
+func newNatPolicy() NatPolicy {
+	return NatPolicy{
+		Class: ClassNatPolicy,
+		Rules: []NatRule{},
 	}
 }
 
@@ -339,14 +411,14 @@ func (ac *as3Post) newLogPoolDecl(sharedApp as3Application) {
 	}
 	//servicePort default is 514
 	numbers := []Member{}
-	if len(log.ServerAddresses) != 0{
-		for _, v :=range log.ServerAddresses{
+	if len(log.ServerAddresses) != 0 {
+		for _, v := range log.ServerAddresses {
 			ips := strings.Split(v, ":")
 			ip := ips[0]
 			port := 514
-			if len(ips)> 1{
+			if len(ips) > 1 {
 				vs, err := strconv.Atoi(ips[1])
-				if err == nil{
+				if err == nil {
 					port = vs
 				}
 			}
@@ -356,7 +428,7 @@ func (ac *as3Post) newLogPoolDecl(sharedApp as3Application) {
 				Enable:          true,
 			})
 		}
-	}else {
+	} else {
 		numbers = append(numbers, Member{
 			ServerAddresses: []string{"0.0.0.0"},
 			ServicePort:     514,
@@ -364,7 +436,7 @@ func (ac *as3Post) newLogPoolDecl(sharedApp as3Application) {
 		})
 	}
 	sharedApp[getMasterCluster()+"_log_pool"] = &Pool{
-		Class: ClassPoll,
+		Class:   ClassPoll,
 		Members: numbers,
 		Monitors: []Monitor{
 			Monitor{Bigip: fmt.Sprintf("/%s/%s", DefaultPartition, log.HealthMonitor)},
@@ -373,7 +445,7 @@ func (ac *as3Post) newLogPoolDecl(sharedApp as3Application) {
 }
 
 //Create VS ARP
-func(ac *as3Post) newVirtualAddressDecl(sharedApp as3Application){
+func (ac *as3Post) newVirtualAddressDecl(sharedApp as3Application) {
 	virtualAddress := ac.tenantConfig.VirtualService.VirtualAddresses.VirtualAddress
 	if len(virtualAddress) == 0 {
 		virtualAddress = "0.0.0.0"
@@ -381,25 +453,25 @@ func(ac *as3Post) newVirtualAddressDecl(sharedApp as3Application){
 	//Enhance the ARP control ability of VS's virtualaddress
 	//virtualAddress of VA use first value if config one address in VirtualAddresses of VS
 	defaultVa := &VirtualServerVa{
-		Class: ClassServiceAddress,
+		Class:          ClassServiceAddress,
 		VirtualAddress: virtualAddress,
-		IcmpEcho: "disable",
-		ArpEnabled: false,
+		IcmpEcho:       "disable",
+		ArpEnabled:     false,
 	}
 	vaTemplate := ac.tenantConfig.VirtualService.VirtualAddresses.template
-	if strings.TrimSpace(vaTemplate) != ""{
+	if strings.TrimSpace(vaTemplate) != "" {
 		va := map[string]interface{}{}
 		err := validateJSONAndFetchObject(vaTemplate, &va)
-		if err == nil{
+		if err == nil {
 			sharedApp[getAs3VsVaAttr()] = defaultVa
 		}
 	}
-	if _, ok := sharedApp[getAs3VsVaAttr()]; !ok{
+	if _, ok := sharedApp[getAs3VsVaAttr()]; !ok {
 		virtualAddresses := ac.tenantConfig.VirtualService.VirtualAddresses
-		if virtualAddresses.VirtualAddress != ""{
+		if virtualAddresses.VirtualAddress != "" {
 			defaultVa.VirtualAddress = virtualAddresses.VirtualAddress
 		}
-		if virtualAddresses.IcmpEcho != ""{
+		if virtualAddresses.IcmpEcho != "" {
 			defaultVa.IcmpEcho = virtualAddresses.IcmpEcho
 		}
 		defaultVa.ArpEnabled = virtualAddresses.ArpEnabled
@@ -444,7 +516,7 @@ func (ac *as3Post) newServiceDecl(sharedApp as3Application) {
 		Layer4:                 "any",
 		TranslateServerAddress: false,
 		TranslateServerPort:    false,
-		VirtualAddresses:       []Use{
+		VirtualAddresses: []Use{
 			{
 				getAs3UsePathForPartition(ac.tenantConfig.Name, getAs3VsVaAttr()),
 			},
@@ -454,9 +526,11 @@ func (ac *as3Post) newServiceDecl(sharedApp as3Application) {
 		},
 		SecurityLogProfiles: []Use{{getAs3UsePathForPartition(ac.tenantConfig.Name, strings.ReplaceAll("k8s_afm_hsl_log_profile", "k8s", getMasterCluster()))}},
 		VirtualPort:         0,
-		Snat:                "auto",
+		Snat:                "none", // todo: 测试
 		Class:               ClassVirtualServerL4,
-		Pool:                getAs3GwPoolAttr(),
+		PolicyNAT: Use{
+			Use: getAs3UsePathForPartition(ac.tenantConfig.Name, "k8s_snat_policy"),
+		},
 	}
 	if !enableSecurityLog {
 		defaultVs.SecurityLogProfiles = []Use{}
@@ -555,6 +629,35 @@ func (a as3Application) allDenyRuleList(partition, attr string) {
 		},
 	}
 
+}
+
+func (ac *as3Post) dealSnatRule() {
+	var destSrcList []FirewallAddressList
+	var destPortList []FirewallPortList
+	var fwAddressList []FirewallAddressList
+	var sourceTranslationList []NatSourceTranslation
+	for _, eipRule := range ac.externalIPRuleList.Items {
+		// dest src
+		destSrcList = append(destSrcList, FirewallAddressList{
+			Class:     ClassFirewallAddressList,
+			Addresses: eipRule.Spec.DestinationMatch.Addresses,
+		})
+
+		// dest port
+		destPortList = append(destPortList, FirewallPortList{
+			Class: ClassFirewallPortList,
+			Ports: eipRule.Spec.DestinationMatch.Ports.Ports,
+		})
+
+		// src addr
+		fwAddressList = append(fwAddressList, FirewallAddressList{
+			Class:     ClassFirewallAddressList,
+			Addresses: eipRule.Spec.Services, //todo
+		})
+
+		// sourceTranslation
+		sourceTranslationList = append(sourceTranslationList, NewNatSourceTranslation(eipRule.Spec.ExternalAddresses))
+	}
 }
 
 func (ac *as3Post) dealRule() []ruleData {
@@ -714,6 +817,10 @@ func getAs3RuleListAttr(ty, namespace, ruleName, exsvcName string) string {
 	return fmt.Sprintf("%s_%s_%s_ext_%s_rule_list", GetCluster(), ty_ns, ruleName, exsvcName)
 }
 
+func getAs3NatRuleListAttr(namespace, name, extra string) string {
+	return fmt.Sprintf("%s_snat_%s_%s_%s", GetCluster(), namespace, name, extra)
+}
+
 func getAs3PolicyAttr(ty, routeDoamin string) string {
 	if ty == "global" {
 		return fmt.Sprintf("%s_system_global_policy", getMasterCluster())
@@ -737,7 +844,7 @@ func getAs3VSAttr() string {
 	return fmt.Sprintf("%s_outbound_vs", getMasterCluster())
 }
 
-func getAs3VsVaAttr() string{
+func getAs3VsVaAttr() string {
 	return fmt.Sprintf("%s_outbound_va", getMasterCluster())
 }
 
@@ -760,7 +867,7 @@ func getAs3UsePathForNamespace(namespace, attr string) string {
 		partition = DefaultPartition
 	} else {
 		tntcfg := GetTenantConfigForNamespace(namespace)
-		if tntcfg == nil{
+		if tntcfg == nil {
 			panic(fmt.Sprintf("Get the current rd configuration of namespace[%s] as nil", namespace))
 		}
 		partition = tntcfg.Name
@@ -948,7 +1055,7 @@ func fullResource(partition string, isDelete bool, srcAdc, deltaAdc as3ADC) inte
 					continue
 				}
 			}
-			if child[ClassKey].(string) == ClassFirewallPolicy {
+			if child[ClassKey].(string) == ClassFirewallPolicy { // todo : 加个NAT_policy else if
 				srcApp[deltaKey] = policyMergeFullJson(srcValue, deltaValue, isDelete)
 			} else {
 				if isDelete {
@@ -1009,9 +1116,9 @@ func policyMergeFullJson(src, delta interface{}, isDelete bool) interface{} {
 		}
 	}
 	//deny all needs to be at the end
-	last := len(srcPolicy.Rules)-1
-	for i := last; i >=0; i-- {
-		if strings.Contains(srcPolicy.Rules[i].Use, getAllDenyRuleListAttr()){
+	last := len(srcPolicy.Rules) - 1
+	for i := last; i >= 0; i-- {
+		if strings.Contains(srcPolicy.Rules[i].Use, getAllDenyRuleListAttr()) {
 			denyAllRule := srcPolicy.Rules[i].Use
 			srcPolicy.Rules[i].Use = srcPolicy.Rules[last].Use
 			srcPolicy.Rules[last].Use = denyAllRule
@@ -1033,7 +1140,7 @@ func clearUpUnreferencePolicy(shareApp map[string]interface{}) {
 		if class == nil {
 			continue
 		}
-		switch class.(string) {
+		switch class.(string) { // todo: 增加NAT policy
 		case ClassFirewallRuleList:
 			rules := obj["rules"].([]interface{})
 			for _, rule := range rules {
@@ -1063,7 +1170,7 @@ func clearUpUnreferencePolicy(shareApp map[string]interface{}) {
 		case ClassFirewallAddressList, ClassFirewallPortList:
 			flag2[key] = true
 		case ClassSecurityLogProfile, ClassLogPublisher:
-			if !isConfigLogProfile(){
+			if !isConfigLogProfile() {
 				delete(shareApp, key)
 			}
 		}
