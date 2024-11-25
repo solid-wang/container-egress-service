@@ -129,62 +129,88 @@ func (ac *as3Post) processResourcesForAS3(sharedApp as3Application) {
 	ac.newServiceDecl(sharedApp)
 
 	// create nat policy
-	ac.newNatPolicyDecl(sharedApp)
+	ac.newNatPoliciesDecl(sharedApp)
 }
 
-func (ac *as3Post) newNatPolicyDecl(sharedApp as3Application) {
-	natRuleMap := ac.newNatRulesDecl(sharedApp)
-
+func (ac *as3Post) getEndpointMap() map[string]corev1.Endpoints {
+	ret := make(map[string]corev1.Endpoints)
+	for _, ep := range ac.endpointList.Items {
+		ret[ep.Namespace+"/"+ep.Name] = ep
+	}
+	return ret
 }
 
-func (ac *as3Post) newNatRulesDecl(sharedApp as3Application) map[string][]FirewallAddressList {
-	ret := make(map[string][]FirewallRule)
+func (ac *as3Post) newNatPoliciesDecl(sharedApp as3Application) {
+	epMap := ac.getEndpointMap()
 
-}
-
-func (ac *as3Post) dealNaRule() []NatRule {
-	var rules []NatRule
+	var natRules []NatRule
+	// 实际ac.externalIPRuleList.Items就一个数据
 	for _, eipRule := range ac.externalIPRuleList.Items {
-		snatRule := NatRule{
+		// dest addr
+		destAddrAttr := getAs3NatRuleListAttr(eipRule.Namespace, eipRule.Name, "dest_addr"+"_"+eipRule.Spec.DestinationMatch.Name)
+		newFirewallAddressList(destAddrAttr, eipRule.Spec.DestinationMatch.Addresses, sharedApp)
+
+		// dest port
+		destPortAttr := getAs3NatRuleListAttr(eipRule.Namespace, eipRule.Name, "dest_port"+"_"+eipRule.Spec.DestinationMatch.Name)
+		newFirewallPortsList(destPortAttr, eipRule.Spec.DestinationMatch.Ports.Ports, sharedApp)
+
+		// src translation
+		srcTransAttr := getAs3NatRuleListAttr(eipRule.Namespace, eipRule.Name, "src_trans")
+		newNatSourceTranslation(srcTransAttr, eipRule.Spec.ExternalAddresses, sharedApp)
+
+		natRule := NatRule{
+			Name:     getAs3NatRuleListAttr(eipRule.Namespace, eipRule.Name, ""),
+			Protocol: eipRule.Spec.DestinationMatch.Ports.Protocol,
+			Source: Source{
+				AddressLists: make([]Use, 0, len(eipRule.Spec.Services)),
+			},
 			Destination: Destination{
 				AddressLists: []Use{
-					{
-						Use: getAs3UsePathForPartition("todo", getAs3NatRuleListAttr(eipRule.Namespace, eipRule.Name, "dest_addr")),
-					},
+					{Use: getAs3UsePathForPartition(ac.tenantConfig.Name, destAddrAttr)},
 				},
 				PortLists: []Use{
-					{
-						Use: getAs3UsePathForPartition("todo", getAs3NatRuleListAttr(eipRule.Namespace, eipRule.Name, "dest_port")),
-					},
+					{Use: getAs3UsePathForPartition(ac.tenantConfig.Name, destPortAttr)},
 				},
 			},
-			Name:     getAs3NatRuleListAttr(eipRule.Namespace, eipRule.Name, "todo"),
-			Protocol: "todo",
-			Source: Source{
-				AddressLists: []Use{
-					{
-						Use: getAs3UsePathForPartition("todo", getAs3NatRuleListAttr(eipRule.Namespace, eipRule.Name, "src_addr")),
-					},
-				},
-			},
-			SourceTranslation: Use{
-				Use: getAs3UsePathForPartition("todo", getAs3NatRuleListAttr(eipRule.Namespace, eipRule.Name, "src_trans")),
-			},
+			SourceTranslation: Use{Use: getAs3UsePathForPartition(ac.tenantConfig.Name, srcTransAttr)},
 		}
 
-		rules = append(rules, snatRule)
+		// src addr
+		for _, svcName := range eipRule.Spec.Services {
+			ep, ok := epMap[eipRule.Namespace+"/"+svcName]
+			if !ok {
+				continue
+			}
+
+			var srcIPs []string
+			for _, subnet := range ep.Subsets {
+				for _, addr := range subnet.Addresses {
+					srcIPs = append(srcIPs, addr.IP)
+				}
+			}
+
+			srcAddrAttr := getAs3SrcAddressAttr("snat", eipRule.Namespace, eipRule.Name, svcName)
+			newFirewallAddressList(srcAddrAttr, srcIPs, sharedApp)
+
+			natRule.Source.AddressLists = append(natRule.Source.AddressLists, Use{
+				Use: getAs3UsePathForPartition(ac.tenantConfig.Name, srcAddrAttr),
+			})
+		}
+
+		natRules = append(natRules, natRule)
 	}
 
-	// 新增auto_map规则
-	rules = append(rules, NatRule{
+	// 新增automap规则
+	// todo: 再加一条newNatSourceTranslation
+	natRules = append(natRules, NatRule{
 		Name:     "k8s_snat_automap",
 		Protocol: "any",
-		SourceTranslation: Use{
-			Use: "automap",
-		},
+		//SourceTranslation: Use{
+		//	Use: "automap", // todo：配置文件配置几个ip
+		//},
 	})
 
-	return rules
+	sharedApp["k8s_snat_policy"] = newNatPolicy(natRules)
 }
 
 func (ac *as3Post) newPoliciesDecl(sharedApp as3Application) {
@@ -277,10 +303,10 @@ func newFirewallRuleList() FirewallRuleList {
 	}
 }
 
-func newNatPolicy() NatPolicy {
+func newNatPolicy(rules []NatRule) NatPolicy {
 	return NatPolicy{
 		Class: ClassNatPolicy,
-		Rules: []NatRule{},
+		Rules: rules,
 	}
 }
 
@@ -631,35 +657,6 @@ func (a as3Application) allDenyRuleList(partition, attr string) {
 
 }
 
-func (ac *as3Post) dealSnatRule() {
-	var destSrcList []FirewallAddressList
-	var destPortList []FirewallPortList
-	var fwAddressList []FirewallAddressList
-	var sourceTranslationList []NatSourceTranslation
-	for _, eipRule := range ac.externalIPRuleList.Items {
-		// dest src
-		destSrcList = append(destSrcList, FirewallAddressList{
-			Class:     ClassFirewallAddressList,
-			Addresses: eipRule.Spec.DestinationMatch.Addresses,
-		})
-
-		// dest port
-		destPortList = append(destPortList, FirewallPortList{
-			Class: ClassFirewallPortList,
-			Ports: eipRule.Spec.DestinationMatch.Ports.Ports,
-		})
-
-		// src addr
-		fwAddressList = append(fwAddressList, FirewallAddressList{
-			Class:     ClassFirewallAddressList,
-			Addresses: eipRule.Spec.Services, //todo
-		})
-
-		// sourceTranslation
-		sourceTranslationList = append(sourceTranslationList, NewNatSourceTranslation(eipRule.Spec.ExternalAddresses))
-	}
-}
-
 func (ac *as3Post) dealRule() []ruleData {
 	rules := []ruleData{}
 	tntCfg := ac.tenantConfig
@@ -818,7 +815,11 @@ func getAs3RuleListAttr(ty, namespace, ruleName, exsvcName string) string {
 }
 
 func getAs3NatRuleListAttr(namespace, name, extra string) string {
-	return fmt.Sprintf("%s_snat_%s_%s_%s", GetCluster(), namespace, name, extra)
+	ret := fmt.Sprintf("%s_snat_%s_%s", GetCluster(), namespace, name)
+	if extra != "" {
+		ret += "_" + extra
+	}
+	return ret
 }
 
 func getAs3PolicyAttr(ty, routeDoamin string) string {
@@ -1055,9 +1056,12 @@ func fullResource(partition string, isDelete bool, srcAdc, deltaAdc as3ADC) inte
 					continue
 				}
 			}
-			if child[ClassKey].(string) == ClassFirewallPolicy { // todo : 加个NAT_policy else if
+			switch child[ClassKey].(string) {
+			case ClassFirewallPolicy:
 				srcApp[deltaKey] = policyMergeFullJson(srcValue, deltaValue, isDelete)
-			} else {
+			case ClassNatPolicy:
+				srcApp[deltaKey] = natPolicyMergeFullJson(srcValue, deltaValue, isDelete)
+			default:
 				if isDelete {
 					delete(srcApp, deltaKey)
 				} else {
@@ -1075,6 +1079,55 @@ func fullResource(partition string, isDelete bool, srcAdc, deltaAdc as3ADC) inte
 		return nil
 	}
 	return newAs3Obj(partition, srcApp)
+}
+
+func natPolicyMergeFullJson(src, delta interface{}, isDelete bool) interface{} {
+	srcData, err := json.Marshal(src)
+	if err != nil {
+		return src
+	}
+	deltaData, err := json.Marshal(delta)
+	if err != nil {
+		return src
+	}
+	srcPolicy, deltaPolicy := NatPolicy{}, NatPolicy{}
+	err = json.Unmarshal(srcData, &srcPolicy)
+	if err != nil {
+		return src
+	}
+	err = json.Unmarshal(deltaData, &deltaPolicy)
+	if err != nil {
+		return src
+	}
+
+	for _, deltaRule := range deltaPolicy.Rules {
+		isExist := false
+		for i, srcRule := range srcPolicy.Rules {
+			if deltaRule.Name == srcRule.Name {
+				isExist = true
+				//if find, delete
+				if isDelete {
+					srcPolicy.Rules = append(srcPolicy.Rules[:i], srcPolicy.Rules[i+1:]...)
+				}
+				break
+			}
+		}
+		if !isExist && !isDelete {
+			srcPolicy.Rules = append(srcPolicy.Rules, deltaRule)
+		}
+	}
+
+	// todo: rule排序
+
+	//automap needs to be at the end
+	last := len(srcPolicy.Rules) - 1
+	for i := last; i >= 0; i-- {
+		if strings.Contains(srcPolicy.Rules[i].Name, "k8s_snat_automap") {
+			srcPolicy.Rules[i], srcPolicy.Rules[last] = srcPolicy.Rules[last], srcPolicy.Rules[i]
+			break
+		}
+	}
+	return srcPolicy
 }
 
 func policyMergeFullJson(src, delta interface{}, isDelete bool) interface{} {
@@ -1140,7 +1193,34 @@ func clearUpUnreferencePolicy(shareApp map[string]interface{}) {
 		if class == nil {
 			continue
 		}
-		switch class.(string) { // todo: 增加NAT policy
+		switch class.(string) {
+		case ClassNatPolicy: // nat policy不删除
+			natPolicyData, err := json.Marshal(value)
+			if err != nil {
+				klog.Errorf("json.Marshal nat policy error: %s", err.Error())
+				continue
+			}
+			var natPolicy NatPolicy
+			if err = json.Unmarshal(natPolicyData, &natPolicy); err != nil {
+				klog.Errorf("json.Unmarshal nat policy error: %s", err.Error())
+				continue
+			}
+			for _, rule := range natPolicy.Rules {
+				// dest addr
+				for _, destAddr := range rule.Destination.AddressLists {
+					flag1[getOriginAttrOfUsePath(destAddr.Use)] = true
+				}
+				// dest port
+				for _, destPort := range rule.Destination.PortLists {
+					flag1[getOriginAttrOfUsePath(destPort.Use)] = true
+				}
+				// src addr
+				for _, srcAddr := range rule.Source.AddressLists {
+					flag1[getOriginAttrOfUsePath(srcAddr.Use)] = true
+				}
+				// src translation
+				flag1[getOriginAttrOfUsePath(rule.SourceTranslation.Use)] = true
+			}
 		case ClassFirewallRuleList:
 			rules := obj["rules"].([]interface{})
 			for _, rule := range rules {
@@ -1167,7 +1247,7 @@ func clearUpUnreferencePolicy(shareApp map[string]interface{}) {
 					}
 				}
 			}
-		case ClassFirewallAddressList, ClassFirewallPortList:
+		case ClassFirewallAddressList, ClassFirewallPortList, ClassNatSourceTranslation:
 			flag2[key] = true
 		case ClassSecurityLogProfile, ClassLogPublisher:
 			if !isConfigLogProfile() {

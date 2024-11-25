@@ -12,10 +12,10 @@ type Source struct {
 }
 
 type NatRule struct {
-	Destination       Destination `json:"destination"`
 	Name              string      `json:"name"`
 	Protocol          string      `json:"protocol"`
 	Source            Source      `json:"source"`
+	Destination       Destination `json:"destination"`
 	SourceTranslation Use         `json:"sourceTranslation"`
 }
 
@@ -47,8 +47,8 @@ type NatSourceTranslation struct {
 	Addresses []string `json:"addresses"`
 }
 
-func NewNatSourceTranslation(ips []string) NatSourceTranslation {
-	return NatSourceTranslation{
+func newNatSourceTranslation(attr string, ips []string, shareApp as3Application) {
+	shareApp[attr] = NatSourceTranslation{
 		Class:     ClassNatSourceTranslation,
 		Type:      "static-nat",
 		Addresses: ips,

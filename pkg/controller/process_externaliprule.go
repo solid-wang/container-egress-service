@@ -2,7 +2,6 @@ package controller
 
 import (
 	"fmt"
-	"github.com/kubeovn/ces-controller/pkg/as3"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -11,6 +10,7 @@ import (
 	"k8s.io/klog/v2"
 
 	snat "github.com/kubeovn/ces-controller/pkg/apis/snat/v1alpha1"
+	"github.com/kubeovn/ces-controller/pkg/as3"
 )
 
 func (c *Controller) processNextExternalIPRuleWorkItem() bool {
@@ -84,18 +84,36 @@ func (c *Controller) externalIPRuleSyncHandler(key string, eipRule *snat.Externa
 	}()
 
 	if eipRule != nil {
-		epIPs := c.getEndpointIPsWithExternalIPRule(eipRule)
-
-		var externalIPRuleList = snat.ExternalIPRuleList{
-			Items: []snat.ExternalIPRule{*eipRule},
+		endpointList := &corev1.EndpointsList{
+			Items: make([]corev1.Endpoints, 0, len(eipRule.Spec.Services)),
 		}
+		for _, svcName := range eipRule.Spec.Services {
+			ep, err := c.endpointsLister.Endpoints(eipRule.Namespace).Get(svcName)
+			if err != nil {
+				klog.Errorf("get endpoint %s/%s error: %s", eipRule.Namespace, svcName, err.Error())
+				continue
+			}
+
+			epCopy := ep.DeepCopy()
+			endpointList.Items = append(endpointList.Items, *epCopy)
+		}
+
+		eipRuleCopy := eipRule.DeepCopy()
+		eipRuleList := &snat.ExternalIPRuleList{
+			Items: []snat.ExternalIPRule{
+				*eipRuleCopy,
+			},
+		}
+
 		tntcfg := as3.GetTenantConfigForNamespace(namespace)
-		err = c.as3Client.As3Request(nil, nil, nil, nil, nil, nil, nil,
+		err = c.as3Client.As3Request(nil, nil, nil, nil, eipRuleList, endpointList, nil,
 			tntcfg, "", isDelete)
 		if err != nil {
 			klog.Error(err)
 			return err
 		}
+	} else {
+		//todo
 	}
 
 	c.recorder.Event(eipRule, corev1.EventTypeNormal, SuccessSynced, MessageResourceSynced)
