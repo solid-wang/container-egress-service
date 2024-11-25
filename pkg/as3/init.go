@@ -46,7 +46,7 @@ namespaces:
 		return fmt.Errorf("No configured Common, please configured, eg: \n%s\n", msg)
 	}
 
-	if getMasterCluster() == GetCluster(){
+	if getMasterCluster() == GetCluster() {
 		as3Str, err := client.Get(DefaultPartition)
 		if err != nil {
 			return fmt.Errorf("failed to get partition, due to: %v", err)
@@ -58,7 +58,7 @@ namespaces:
 	return nil
 }
 
-func initTenantConfig(as3Config As3Config, cesNamespace string){
+func initTenantConfig(as3Config As3Config, cesNamespace string) {
 	//store cluster in sync.Map
 	registValue(schemaVersionKey, as3Config.SchemaVersion)
 	registValue(currentClusterKey, as3Config.ClusterName)
@@ -202,7 +202,7 @@ func getSchemaVersion() string {
 	return v.(string)
 }
 
-func isConfigLogProfile()bool{
+func isConfigLogProfile() bool {
 	if !getLogPool().LoggingEnabled || getLogPool().Template == "" {
 		return false
 	}
@@ -220,7 +220,7 @@ func skipDeleteShareApplicationClassOrAttr(partition, attr string) bool {
 	}
 	shareApp := as3Application{}
 	tntcfg := GetTenantConfigForParttition(partition)
-	ac := newAs3Post(nil, nil, nil,nil,nil,nil, tntcfg)
+	ac := newAs3Post(nil, nil, nil, nil, nil, nil, nil, tntcfg)
 	ac.newLogPoolDecl(shareApp)
 	for k, _ := range shareApp {
 		skipDeleteShareApplicationAttr[k] = true
@@ -233,9 +233,9 @@ func GetIRules() string {
 	return strings.Join(irules, ",")
 }
 
-func GetClusterSvcExtNamespace() string{
+func GetClusterSvcExtNamespace() string {
 	clusterSvcExtNamespace := getValue(clusterSvcExtNamespaceKey)
-	if clusterSvcExtNamespace == nil{
+	if clusterSvcExtNamespace == nil {
 		return "kube-system"
 	}
 	return clusterSvcExtNamespace.(string)

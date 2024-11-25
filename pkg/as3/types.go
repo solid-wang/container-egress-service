@@ -110,6 +110,7 @@ type VirtualServer struct {
 	SecurityLogProfiles    []Use  `json:"securityLogProfiles,omitempty"`
 	VirtualPort            int    `json:"virtualPort"`
 	Snat                   string `json:"snat"`
+	PolicyNAT              Use    `json:"policyNAT"`
 	Class                  string `json:"class"`
 	Pool                   string `json:"pool"`
 }
