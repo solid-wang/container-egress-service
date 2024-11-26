@@ -15,6 +15,7 @@ const (
 	masterClusterKey          = "__MASTER_CLUSTER__"
 	as3IRulesListKey          = "__AS3_IRULES_LIST_KEY__"
 	clusterSvcExtNamespaceKey = "__CLUSTER_SVC_EXT_NAMESPACE__"
+	externalIPAddressesKey    = "__EXTERNAL_IP_ADDRESSES__"
 )
 
 func registValue(name, v interface{}) {

@@ -9,7 +9,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/klog/v2"
 
-	snat "github.com/kubeovn/ces-controller/pkg/apis/snat/v1alpha1"
+	snat "github.com/kubeovn/ces-controller/pkg/apis/bigip.io/v1alpha1"
 	"github.com/kubeovn/ces-controller/pkg/as3"
 )
 

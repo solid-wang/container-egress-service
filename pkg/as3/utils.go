@@ -8,14 +8,14 @@ import (
 	"strconv"
 	"strings"
 
+	snat "github.com/kubeovn/ces-controller/pkg/apis/bigip.io/v1alpha1"
 	"github.com/kubeovn/ces-controller/pkg/apis/kubeovn.io/v1alpha1"
-	snat "github.com/kubeovn/ces-controller/pkg/apis/snat/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/klog/v2"
 )
 
-//other partition set clusterEgressList is nil
-//The purpose is not to set the global policy
+// other partition set clusterEgressList is nil
+// The purpose is not to set the global policy
 type as3Post struct {
 	serviceEgressList   *v1alpha1.ServiceEgressRuleList
 	namespaceEgressList *v1alpha1.NamespaceEgressRuleList
@@ -161,10 +161,10 @@ func (ac *as3Post) newNatPoliciesDecl(sharedApp as3Application) {
 		natRule := NatRule{
 			Name:     getAs3NatRuleListAttr(eipRule.Namespace, eipRule.Name, ""),
 			Protocol: eipRule.Spec.DestinationMatch.Ports.Protocol,
-			Source: Source{
+			Source: &Source{
 				AddressLists: make([]Use, 0, len(eipRule.Spec.Services)),
 			},
-			Destination: Destination{
+			Destination: &Destination{
 				AddressLists: []Use{
 					{Use: getAs3UsePathForPartition(ac.tenantConfig.Name, destAddrAttr)},
 				},
@@ -201,16 +201,14 @@ func (ac *as3Post) newNatPoliciesDecl(sharedApp as3Application) {
 	}
 
 	// 新增automap规则
-	// todo: 再加一条newNatSourceTranslation
+	// todo: AS3 不支持 sourceTranslation: "automap"
+	newNatSourceTranslation(defaultSnatTranslation, getExternalIPAddresses(), sharedApp)
 	natRules = append(natRules, NatRule{
-		Name:     "k8s_snat_automap",
-		Protocol: "any",
-		//SourceTranslation: Use{
-		//	Use: "automap", // todo：配置文件配置几个ip
-		//},
+		Name:              defaultSnatRule,
+		Protocol:          "any",
+		SourceTranslation: Use{Use: getAs3UsePathForPartition(ac.tenantConfig.Name, defaultSnatTranslation)},
 	})
-
-	sharedApp["k8s_snat_policy"] = newNatPolicy(natRules)
+	sharedApp[defaultSnatPolicy] = newNatPolicy(natRules)
 }
 
 func (ac *as3Post) newPoliciesDecl(sharedApp as3Application) {
@@ -470,7 +468,7 @@ func (ac *as3Post) newLogPoolDecl(sharedApp as3Application) {
 	}
 }
 
-//Create VS ARP
+// Create VS ARP
 func (ac *as3Post) newVirtualAddressDecl(sharedApp as3Application) {
 	virtualAddress := ac.tenantConfig.VirtualService.VirtualAddresses.VirtualAddress
 	if len(virtualAddress) == 0 {
@@ -849,6 +847,10 @@ func getAs3VsVaAttr() string {
 	return fmt.Sprintf("%s_outbound_va", getMasterCluster())
 }
 
+func getExternalIPAddresses() []string {
+	return getValue(externalIPAddressesKey).([]string)
+}
+
 func getAs3UsePathForPartition(partition, attr string) string {
 	if attr == "" {
 		return ""
@@ -1103,6 +1105,9 @@ func natPolicyMergeFullJson(src, delta interface{}, isDelete bool) interface{} {
 	for _, deltaRule := range deltaPolicy.Rules {
 		isExist := false
 		for i, srcRule := range srcPolicy.Rules {
+			if srcRule.Name == defaultSnatRule {
+				srcPolicy.Rules[i] = deltaRule
+			}
 			if deltaRule.Name == srcRule.Name {
 				isExist = true
 				//if find, delete
@@ -1122,11 +1127,12 @@ func natPolicyMergeFullJson(src, delta interface{}, isDelete bool) interface{} {
 	//automap needs to be at the end
 	last := len(srcPolicy.Rules) - 1
 	for i := last; i >= 0; i-- {
-		if strings.Contains(srcPolicy.Rules[i].Name, "k8s_snat_automap") {
+		if strings.Contains(srcPolicy.Rules[i].Name, defaultSnatRule) {
 			srcPolicy.Rules[i], srcPolicy.Rules[last] = srcPolicy.Rules[last], srcPolicy.Rules[i]
 			break
 		}
 	}
+
 	return srcPolicy
 }
 
@@ -1185,6 +1191,7 @@ func clearUpUnreferencePolicy(shareApp map[string]interface{}) {
 	flag1 := map[string]bool{}
 	flag2 := map[string]bool{}
 	for key, value := range shareApp {
+		// todo: bug k8s_snat_policy is not map[string]interface{}
 		obj, ok := value.(map[string]interface{})
 		if !ok {
 			continue
@@ -1194,7 +1201,7 @@ func clearUpUnreferencePolicy(shareApp map[string]interface{}) {
 			continue
 		}
 		switch class.(string) {
-		case ClassNatPolicy: // nat policy不删除
+		case ClassNatPolicy: // nat policy不删
 			natPolicyData, err := json.Marshal(value)
 			if err != nil {
 				klog.Errorf("json.Marshal nat policy error: %s", err.Error())
@@ -1206,19 +1213,31 @@ func clearUpUnreferencePolicy(shareApp map[string]interface{}) {
 				continue
 			}
 			for _, rule := range natPolicy.Rules {
-				// dest addr
-				for _, destAddr := range rule.Destination.AddressLists {
-					flag1[getOriginAttrOfUsePath(destAddr.Use)] = true
+				if rule.Destination != nil {
+					if rule.Destination.AddressLists != nil {
+						// dest addr
+						for _, destAddr := range rule.Destination.AddressLists {
+							flag1[getOriginAttrOfUsePath(destAddr.Use)] = true
+						}
+					}
+					if rule.Destination.PortLists != nil {
+						// dest port
+						for _, destPort := range rule.Destination.PortLists {
+							flag1[getOriginAttrOfUsePath(destPort.Use)] = true
+						}
+					}
 				}
-				// dest port
-				for _, destPort := range rule.Destination.PortLists {
-					flag1[getOriginAttrOfUsePath(destPort.Use)] = true
-				}
-				// src addr
-				for _, srcAddr := range rule.Source.AddressLists {
-					flag1[getOriginAttrOfUsePath(srcAddr.Use)] = true
+
+				if rule.Source != nil && rule.Source.AddressLists != nil {
+					// src addr
+					for _, srcAddr := range rule.Source.AddressLists {
+						flag1[getOriginAttrOfUsePath(srcAddr.Use)] = true
+					}
 				}
 				// src translation
+				fmt.Println("rule.SourceTranslation.Use: ", rule.SourceTranslation.Use)
+				fmt.Println("getOriginAttrOfUsePath(rule.SourceTranslation.Use): ", getOriginAttrOfUsePath(rule.SourceTranslation.Use))
+				fmt.Println()
 				flag1[getOriginAttrOfUsePath(rule.SourceTranslation.Use)] = true
 			}
 		case ClassFirewallRuleList:

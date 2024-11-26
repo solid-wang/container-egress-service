@@ -19,27 +19,27 @@ limitations under the License.
 package v1alpha1
 
 import (
-	v1alpha1 "github.com/kubeovn/ces-controller/pkg/apis/snat/v1alpha1"
+	v1alpha1 "github.com/kubeovn/ces-controller/pkg/apis/bigip.io/v1alpha1"
 	"github.com/kubeovn/ces-controller/pkg/generated/clientset/versioned/scheme"
 	rest "k8s.io/client-go/rest"
 )
 
-type SnatV1alpha1Interface interface {
+type BigipV1alpha1Interface interface {
 	RESTClient() rest.Interface
 	ExternalIPRulesGetter
 }
 
-// SnatV1alpha1Client is used to interact with features provided by the snat group.
-type SnatV1alpha1Client struct {
+// BigipV1alpha1Client is used to interact with features provided by the bigip.io group.
+type BigipV1alpha1Client struct {
 	restClient rest.Interface
 }
 
-func (c *SnatV1alpha1Client) ExternalIPRules(namespace string) ExternalIPRuleInterface {
+func (c *BigipV1alpha1Client) ExternalIPRules(namespace string) ExternalIPRuleInterface {
 	return newExternalIPRules(c, namespace)
 }
 
-// NewForConfig creates a new SnatV1alpha1Client for the given config.
-func NewForConfig(c *rest.Config) (*SnatV1alpha1Client, error) {
+// NewForConfig creates a new BigipV1alpha1Client for the given config.
+func NewForConfig(c *rest.Config) (*BigipV1alpha1Client, error) {
 	config := *c
 	if err := setConfigDefaults(&config); err != nil {
 		return nil, err
@@ -48,12 +48,12 @@ func NewForConfig(c *rest.Config) (*SnatV1alpha1Client, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &SnatV1alpha1Client{client}, nil
+	return &BigipV1alpha1Client{client}, nil
 }
 
-// NewForConfigOrDie creates a new SnatV1alpha1Client for the given config and
+// NewForConfigOrDie creates a new BigipV1alpha1Client for the given config and
 // panics if there is an error in the config.
-func NewForConfigOrDie(c *rest.Config) *SnatV1alpha1Client {
+func NewForConfigOrDie(c *rest.Config) *BigipV1alpha1Client {
 	client, err := NewForConfig(c)
 	if err != nil {
 		panic(err)
@@ -61,9 +61,9 @@ func NewForConfigOrDie(c *rest.Config) *SnatV1alpha1Client {
 	return client
 }
 
-// New creates a new SnatV1alpha1Client for the given RESTClient.
-func New(c rest.Interface) *SnatV1alpha1Client {
-	return &SnatV1alpha1Client{c}
+// New creates a new BigipV1alpha1Client for the given RESTClient.
+func New(c rest.Interface) *BigipV1alpha1Client {
+	return &BigipV1alpha1Client{c}
 }
 
 func setConfigDefaults(config *rest.Config) error {
@@ -81,7 +81,7 @@ func setConfigDefaults(config *rest.Config) error {
 
 // RESTClient returns a RESTClient that is used to communicate
 // with API server by this client implementation.
-func (c *SnatV1alpha1Client) RESTClient() rest.Interface {
+func (c *BigipV1alpha1Client) RESTClient() rest.Interface {
 	if c == nil {
 		return nil
 	}

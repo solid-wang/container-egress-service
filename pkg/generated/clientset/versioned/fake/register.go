@@ -19,8 +19,8 @@ limitations under the License.
 package fake
 
 import (
+	bigipv1alpha1 "github.com/kubeovn/ces-controller/pkg/apis/bigip.io/v1alpha1"
 	kubeovnv1alpha1 "github.com/kubeovn/ces-controller/pkg/apis/kubeovn.io/v1alpha1"
-	snatv1alpha1 "github.com/kubeovn/ces-controller/pkg/apis/snat/v1alpha1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	schema "k8s.io/apimachinery/pkg/runtime/schema"
@@ -32,8 +32,8 @@ var scheme = runtime.NewScheme()
 var codecs = serializer.NewCodecFactory(scheme)
 
 var localSchemeBuilder = runtime.SchemeBuilder{
+	bigipv1alpha1.AddToScheme,
 	kubeovnv1alpha1.AddToScheme,
-	snatv1alpha1.AddToScheme,
 }
 
 // AddToScheme adds all types of this clientset into the given scheme. This allows composition

@@ -128,7 +128,7 @@ func main() {
 	clusterEgressRuleInformer := as3InformerFactory.Kubeovn().V1alpha1().ClusterEgressRules()
 	namespaceEgressRuleInformer := as3InformerFactory.Kubeovn().V1alpha1().NamespaceEgressRules()
 	serviceEgressRuleInformer := as3InformerFactory.Kubeovn().V1alpha1().ServiceEgressRules()
-	externalIPRuleInformer := as3InformerFactory.Snat().V1alpha1().ExternalIPRules()
+	externalIPRuleInformer := as3InformerFactory.Bigip().V1alpha1().ExternalIPRules()
 
 	controller := controller.NewController(kubeClient, as3Client,
 		endpointsInformer, externalServiceInformer, clusterEgressRuleInformer,

@@ -72,6 +72,8 @@ func initTenantConfig(as3Config As3Config, cesNamespace string) {
 	registValue(as3IRulesListKey, as3Config.IRule)
 	//store ces serviceacount namespace, used cluster exsvc ns
 	registValue(clusterSvcExtNamespaceKey, cesNamespace)
+	//store external ip addresses
+	registValue(externalIPAddressesKey, as3Config.ExternalIPAddresses)
 	//store tenant in in sync.Map
 	for _, tntconf := range as3Config.Tenant {
 		if tntconf.Name == DefaultPartition {
@@ -239,4 +241,9 @@ func GetClusterSvcExtNamespace() string {
 		return "kube-system"
 	}
 	return clusterSvcExtNamespace.(string)
+}
+
+func GetExternalIPAddresses() []string {
+	v := getValue(externalIPAddressesKey)
+	return v.([]string)
 }

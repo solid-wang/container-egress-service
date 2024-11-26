@@ -1,14 +1,18 @@
 package as3
 
-import "testing"
+import (
+	"encoding/json"
+	"reflect"
+	"testing"
+)
 
 // go test -mod=vendor -run="^TestSnatPolicyString$" -v
 func TestSnatPolicyString(t *testing.T) {
 	sp := NatPolicy{
 		Class: "NAT_Policy",
-		Rules: []SnatRule{
+		Rules: []NatRule{
 			{
-				Destination: Destination{
+				Destination: &Destination{
 					AddressLists: []Use{
 						{
 							Use: "/Common/Shared/k8s_snat_ces_busybox-snat_ext_busybox-svc_address-name",
@@ -22,7 +26,7 @@ func TestSnatPolicyString(t *testing.T) {
 				},
 				Name:     "busybox_snat",
 				Protocol: "tcp",
-				Source: Source{
+				Source: &Source{
 					AddressLists: []Use{
 						{
 							Use: "/Common/Shared/k8s_snat_ces_busybox-snat_ep_busybox-svc_src_address",
@@ -55,4 +59,26 @@ func TestParseStringToSnatPolicy(t *testing.T) {
 	}
 
 	t.Logf("%#v", policy)
+}
+
+// go test -mode=vendor -run="TestMarshalJSONSnatPolicy" -v
+func TestMarshalJSONSnatPolicy(t *testing.T) {
+	sp := NatPolicy{
+		Class: "NAT_Policy",
+		Rules: []NatRule{
+			{
+				Name:     "test",
+				Protocol: "tcp",
+			},
+		},
+	}
+
+	data, err := json.Marshal(sp)
+	if err != nil {
+		t.Fatal(err)
+	}
+	println(string(data))
+	if !reflect.DeepEqual(string(data), `{"class":"NAT_Policy","rules":[{"name":"test","protocol":"tcp"}]}`) {
+		t.Fatal("json marshal error")
+	}
 }

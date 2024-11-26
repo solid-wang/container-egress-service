@@ -64,5 +64,5 @@ const (
 	NamespaceCidr = "ovn.kubernetes.io/cidr"
 )
 
-//eg: Common/Shared/k8s
+// eg: Common/Shared/k8s
 const pathProfix = "/%s/Shared/%s"

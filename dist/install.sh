@@ -308,6 +308,16 @@ rules:
       - list
       - update
       - patch
+  - apiGroups:
+      - snat
+    resources:
+      - externalservices
+    verbs:
+      - get
+      - watch
+      - list
+      - update
+      - patch
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding

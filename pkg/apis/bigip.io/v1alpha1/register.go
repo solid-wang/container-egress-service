@@ -21,7 +21,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
-	"github.com/kubeovn/ces-controller/pkg/apis/snat"
+	snat "github.com/kubeovn/ces-controller/pkg/apis/bigip.io"
 )
 
 // SchemeGroupVersion is group version used to register these objects

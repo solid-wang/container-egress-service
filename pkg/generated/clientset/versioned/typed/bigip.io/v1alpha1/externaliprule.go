@@ -22,7 +22,7 @@ import (
 	"context"
 	"time"
 
-	v1alpha1 "github.com/kubeovn/ces-controller/pkg/apis/snat/v1alpha1"
+	v1alpha1 "github.com/kubeovn/ces-controller/pkg/apis/bigip.io/v1alpha1"
 	scheme "github.com/kubeovn/ces-controller/pkg/generated/clientset/versioned/scheme"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
@@ -56,7 +56,7 @@ type externalIPRules struct {
 }
 
 // newExternalIPRules returns a ExternalIPRules
-func newExternalIPRules(c *SnatV1alpha1Client, namespace string) *externalIPRules {
+func newExternalIPRules(c *BigipV1alpha1Client, namespace string) *externalIPRules {
 	return &externalIPRules{
 		client: c.RESTClient(),
 		ns:     namespace,

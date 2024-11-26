@@ -34,15 +34,15 @@ import (
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
 
+	snat "github.com/kubeovn/ces-controller/pkg/apis/bigip.io/v1alpha1"
 	kubeovn "github.com/kubeovn/ces-controller/pkg/apis/kubeovn.io/v1alpha1"
-	snat "github.com/kubeovn/ces-controller/pkg/apis/snat/v1alpha1"
 	"github.com/kubeovn/ces-controller/pkg/as3"
 	clientset "github.com/kubeovn/ces-controller/pkg/generated/clientset/versioned"
 	as3scheme "github.com/kubeovn/ces-controller/pkg/generated/clientset/versioned/scheme"
+	snatinformers "github.com/kubeovn/ces-controller/pkg/generated/informers/externalversions/bigip.io/v1alpha1"
 	informers "github.com/kubeovn/ces-controller/pkg/generated/informers/externalversions/kubeovn.io/v1alpha1"
-	snatinformers "github.com/kubeovn/ces-controller/pkg/generated/informers/externalversions/snat/v1alpha1"
+	snatlisters "github.com/kubeovn/ces-controller/pkg/generated/listers/bigip.io/v1alpha1"
 	listers "github.com/kubeovn/ces-controller/pkg/generated/listers/kubeovn.io/v1alpha1"
-	snatlisters "github.com/kubeovn/ces-controller/pkg/generated/listers/snat/v1alpha1"
 )
 
 const ControllerAgentName = "ces-controller"

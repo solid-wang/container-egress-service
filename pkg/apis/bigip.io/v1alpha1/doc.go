@@ -14,7 +14,9 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package snat
+// +k8s:deepcopy-gen=package
+// +k8s:defaulter-gen=TypeMeta
+// +groupName=bigip.io
 
-// GroupName is the group name used in this package
-const GroupName = "snat"
+// Package v1alpha1 is the v1alpha1 version of the API.
+package v1alpha1 // import "github.com/kubeovn/ces-controller/pkg/apis/snat/v1alpha1"

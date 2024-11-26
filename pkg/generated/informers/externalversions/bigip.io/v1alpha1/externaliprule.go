@@ -22,10 +22,10 @@ import (
 	"context"
 	time "time"
 
-	snatv1alpha1 "github.com/kubeovn/ces-controller/pkg/apis/snat/v1alpha1"
+	bigipiov1alpha1 "github.com/kubeovn/ces-controller/pkg/apis/bigip.io/v1alpha1"
 	versioned "github.com/kubeovn/ces-controller/pkg/generated/clientset/versioned"
 	internalinterfaces "github.com/kubeovn/ces-controller/pkg/generated/informers/externalversions/internalinterfaces"
-	v1alpha1 "github.com/kubeovn/ces-controller/pkg/generated/listers/snat/v1alpha1"
+	v1alpha1 "github.com/kubeovn/ces-controller/pkg/generated/listers/bigip.io/v1alpha1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	watch "k8s.io/apimachinery/pkg/watch"
@@ -62,16 +62,16 @@ func NewFilteredExternalIPRuleInformer(client versioned.Interface, namespace str
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.SnatV1alpha1().ExternalIPRules(namespace).List(context.TODO(), options)
+				return client.BigipV1alpha1().ExternalIPRules(namespace).List(context.TODO(), options)
 			},
 			WatchFunc: func(options v1.ListOptions) (watch.Interface, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.SnatV1alpha1().ExternalIPRules(namespace).Watch(context.TODO(), options)
+				return client.BigipV1alpha1().ExternalIPRules(namespace).Watch(context.TODO(), options)
 			},
 		},
-		&snatv1alpha1.ExternalIPRule{},
+		&bigipiov1alpha1.ExternalIPRule{},
 		resyncPeriod,
 		indexers,
 	)
@@ -82,7 +82,7 @@ func (f *externalIPRuleInformer) defaultInformer(client versioned.Interface, res
 }
 
 func (f *externalIPRuleInformer) Informer() cache.SharedIndexInformer {
-	return f.factory.InformerFor(&snatv1alpha1.ExternalIPRule{}, f.defaultInformer)
+	return f.factory.InformerFor(&bigipiov1alpha1.ExternalIPRule{}, f.defaultInformer)
 }
 
 func (f *externalIPRuleInformer) Lister() v1alpha1.ExternalIPRuleLister {

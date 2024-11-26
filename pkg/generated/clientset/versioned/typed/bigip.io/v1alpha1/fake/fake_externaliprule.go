@@ -21,7 +21,7 @@ package fake
 import (
 	"context"
 
-	v1alpha1 "github.com/kubeovn/ces-controller/pkg/apis/snat/v1alpha1"
+	v1alpha1 "github.com/kubeovn/ces-controller/pkg/apis/bigip.io/v1alpha1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	labels "k8s.io/apimachinery/pkg/labels"
 	schema "k8s.io/apimachinery/pkg/runtime/schema"
@@ -32,13 +32,13 @@ import (
 
 // FakeExternalIPRules implements ExternalIPRuleInterface
 type FakeExternalIPRules struct {
-	Fake *FakeSnatV1alpha1
+	Fake *FakeBigipV1alpha1
 	ns   string
 }
 
-var externaliprulesResource = schema.GroupVersionResource{Group: "snat", Version: "v1alpha1", Resource: "externaliprules"}
+var externaliprulesResource = schema.GroupVersionResource{Group: "bigip.io", Version: "v1alpha1", Resource: "externaliprules"}
 
-var externaliprulesKind = schema.GroupVersionKind{Group: "snat", Version: "v1alpha1", Kind: "ExternalIPRule"}
+var externaliprulesKind = schema.GroupVersionKind{Group: "bigip.io", Version: "v1alpha1", Kind: "ExternalIPRule"}
 
 // Get takes name of the externalIPRule, and returns the corresponding externalIPRule object, and an error if there is any.
 func (c *FakeExternalIPRules) Get(ctx context.Context, name string, options v1.GetOptions) (result *v1alpha1.ExternalIPRule, err error) {

@@ -2,21 +2,25 @@ package as3
 
 import "encoding/json"
 
+const defaultSnatTranslation = "k8s_snat_default_translation"
+const defaultSnatRule = "k8s_snat_automap"
+const defaultSnatPolicy = "k8s_snat_policy"
+
 type Destination struct {
-	AddressLists []Use `json:"addressLists"`
-	PortLists    []Use `json:"portLists"`
+	AddressLists []Use `json:"addressLists,omitempty"`
+	PortLists    []Use `json:"portLists,omitempty"`
 }
 
 type Source struct {
-	AddressLists []Use `json:"addressLists"`
+	AddressLists []Use `json:"addressLists,omitempty"`
 }
 
 type NatRule struct {
-	Name              string      `json:"name"`
-	Protocol          string      `json:"protocol"`
-	Source            Source      `json:"source"`
-	Destination       Destination `json:"destination"`
-	SourceTranslation Use         `json:"sourceTranslation"`
+	Name              string       `json:"name"`
+	Protocol          string       `json:"protocol"`
+	Source            *Source      `json:"source,omitempty"`
+	Destination       *Destination `json:"destination,omitempty"`
+	SourceTranslation Use          `json:"sourceTranslation"`
 }
 
 type NatPolicy struct {

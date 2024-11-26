@@ -115,7 +115,7 @@ type VirtualServer struct {
 	Pool                   string `json:"pool"`
 }
 
-//ARP
+// ARP
 type VirtualServerVa struct {
 	Class          string `json:"class"`
 	VirtualAddress string `json:"virtualAddress"`
@@ -123,7 +123,7 @@ type VirtualServerVa struct {
 	ArpEnabled     bool   `json:"arpEnabled"`
 }
 
-//viper
+// viper
 type (
 	As3Config struct {
 		SchemaVersion        string         `mapstructure:"schemaVersion"`
@@ -132,6 +132,7 @@ type (
 		IsSupportRouteDomain bool           `mapstructure:"isSupportRouteDomain"`
 		IRule                []string       `mapstructure:"iRule"`
 		Tenant               []TenantConfig `mapstructure:"tenant"`
+		ExternalIPAddresses  []string       `mapstructure:"externalIPAddresses"`
 		LogPool              LogPool        `mapstructure:"logPool"`
 	}
 
@@ -177,7 +178,7 @@ type (
 	}
 )
 
-//BIG-IP
+// BIG-IP
 type (
 	BigIpAddressList struct {
 		Addresses []BigIpAddresses `json:"addresses"`
@@ -187,7 +188,7 @@ type (
 	}
 )
 
-//Full body request struct
+// Full body request struct
 type (
 	as3JSONWithArbKeys map[string]interface{}
 

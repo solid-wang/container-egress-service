@@ -5,8 +5,8 @@ import (
 	"sync"
 	"time"
 
+	snat "github.com/kubeovn/ces-controller/pkg/apis/bigip.io/v1alpha1"
 	"github.com/kubeovn/ces-controller/pkg/apis/kubeovn.io/v1alpha1"
-	snat "github.com/kubeovn/ces-controller/pkg/apis/snat/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/klog/v2"
 )
