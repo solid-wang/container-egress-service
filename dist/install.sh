@@ -309,9 +309,9 @@ rules:
       - update
       - patch
   - apiGroups:
-      - snat
+      - bigip.io
     resources:
-      - externalservices
+      - externaliprules
     verbs:
       - get
       - watch

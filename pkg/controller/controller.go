@@ -192,7 +192,7 @@ func NewController(
 		DeleteFunc: controller.enqueueSeviceEgressRule,
 	})
 
-	externalServiceInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+	externalIPRuleInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: controller.enqueueExternalIPRule,
 		UpdateFunc: func(oldObj, newObj interface{}) {
 			if !controller.isUpdate(oldObj, newObj) {
@@ -243,7 +243,7 @@ func (c *Controller) Run(stopCh <-chan struct{}) error {
 	go wait.Until(c.runClusterEgressRuleWorker, 5*time.Second, stopCh)
 	go wait.Until(c.runNamespaceEgressRuleWorker, 5*time.Second, stopCh)
 	go wait.Until(c.runSeviceEgressRuleWorker, 5*time.Second, stopCh)
-	go wait.Until(c.runExternalServiceWorker, 5*time.Second, stopCh)
+	go wait.Until(c.runExternalIPRuleWorker, 5*time.Second, stopCh)
 
 	klog.Info("Started workers")
 	for i := 0; i < 5; i++ {
@@ -277,6 +277,11 @@ func (c *Controller) runNamespaceEgressRuleWorker() {
 
 func (c *Controller) runSeviceEgressRuleWorker() {
 	for c.processNextSeviceEgressRuleWorkerItem() {
+	}
+}
+
+func (c *Controller) runExternalIPRuleWorker() {
+	for c.processNextExternalIPRuleWorkItem() {
 	}
 }
 
