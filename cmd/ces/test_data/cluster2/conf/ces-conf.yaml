@@ -18,6 +18,8 @@ tenant:
     gwPool:
       serverAddresses:
         - "192.168.21.254"
+externalIPAddresses:
+    - 192.168.21.66
 logPool:
   loggingEnabled: true
   enableRemoteLog: false

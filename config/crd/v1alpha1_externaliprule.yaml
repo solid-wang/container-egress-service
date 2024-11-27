@@ -43,16 +43,26 @@ spec:
                 destinationMatch:
                   type: object
                   properties:
-                    protocol:
+                    name:
                       type: string
-                      enum:
-                        - tcp
-                        - udp
-                    port:
-                      type: string
-                      pattern: "^[0-9]+(-[0-9]+)?(,[0-9]+(-[0-9]+)?)*$"
+                    addresses:
+                      type: array
+                      items:
+                        type: string
+                    destinationMatchPorts:
+                      type: object
+                      properties:
+                        protocol:
+                          type: string
+                          enum:
+                            - tcp
+                            - udp
+                        ports:
+                          type: array
+                          items:
+                            type: string
+                            pattern: "^[0-9]+(-[0-9]+)?(,[0-9]+(-[0-9]+)?)*$"
                 services:
                   type: array
                   items:
                     type: string
-

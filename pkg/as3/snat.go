@@ -12,7 +12,7 @@ type Destination struct {
 }
 
 type Source struct {
-	AddressLists []Use `json:"addressLists,omitempty"`
+	AddressLists []Use `json:"addressLists"`
 }
 
 type NatRule struct {
@@ -49,12 +49,14 @@ type NatSourceTranslation struct {
 	Class     string   `json:"class"`
 	Type      string   `json:"type"`
 	Addresses []string `json:"addresses"`
+	Ports     []string `json:"ports"`
 }
 
 func newNatSourceTranslation(attr string, ips []string, shareApp as3Application) {
 	shareApp[attr] = NatSourceTranslation{
 		Class:     ClassNatSourceTranslation,
-		Type:      "static-nat",
+		Type:      "dynamic-pat",
 		Addresses: ips,
+		Ports:     []string{"10000-50000"},
 	}
 }

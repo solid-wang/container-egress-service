@@ -363,6 +363,10 @@ func newFirewallAddressList(attr string, addresses []string, shareApp as3Applica
 			ips = append(ips, addr)
 		}
 	}
+	// as3不允许addresses为nil或addresses的lenth为0。这里强制设置为1.1.1.1。
+	if len(ips) == 0 {
+		ips = []string{"1.1.1.1"}
+	}
 	shareApp[attr] = FirewallAddressList{
 		Class:     ClassFirewallAddressList,
 		Addresses: ips,
