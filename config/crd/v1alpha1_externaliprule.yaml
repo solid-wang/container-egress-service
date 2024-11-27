@@ -34,8 +34,6 @@ spec:
                 - externalAddresses
                 - services
               properties:
-                priority:
-                  type: integer
                 externalAddresses:
                   type: array
                   items:
