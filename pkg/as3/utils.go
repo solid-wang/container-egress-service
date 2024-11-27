@@ -887,6 +887,14 @@ func getOriginAttrOfUsePath(use string) string {
 	return k[3]
 }
 
+func getLatestUsePath(use string) string {
+	k := strings.Split(use, "/")
+	if len(k) == 0 {
+		return ""
+	}
+	return k[len(k)-1]
+}
+
 func translateAs3Declaration(decl interface{}) as3Declaration {
 	switch decl.(type) {
 	case string:
@@ -1047,6 +1055,17 @@ func fullResource(partition string, isDelete bool, srcAdc, deltaAdc as3ADC) inte
 	}
 	for deltaKey, deltaValue := range deltaApp {
 		if srcValue, ok := srcApp[deltaKey]; ok {
+			switch deltaKey {
+			case defaultSnatPolicy:
+				// 不用考虑删除
+				srcApp[deltaKey] = natPolicyMergeFullJson(srcValue, deltaValue, isDelete)
+				continue
+			case defaultSnatTranslation:
+				// 不用考虑删除
+				srcApp[deltaKey] = srcValue
+				continue
+			}
+
 			child, ok := srcValue.(map[string]interface{})
 			if !ok {
 				continue
@@ -1061,8 +1080,6 @@ func fullResource(partition string, isDelete bool, srcAdc, deltaAdc as3ADC) inte
 			switch child[ClassKey].(string) {
 			case ClassFirewallPolicy:
 				srcApp[deltaKey] = policyMergeFullJson(srcValue, deltaValue, isDelete)
-			case ClassNatPolicy:
-				srcApp[deltaKey] = natPolicyMergeFullJson(srcValue, deltaValue, isDelete)
 			default:
 				if isDelete {
 					delete(srcApp, deltaKey)
@@ -1104,14 +1121,19 @@ func natPolicyMergeFullJson(src, delta interface{}, isDelete bool) interface{} {
 
 	for _, deltaRule := range deltaPolicy.Rules {
 		isExist := false
-		for i, srcRule := range srcPolicy.Rules {
-			if srcRule.Name == defaultSnatRule {
-				srcPolicy.Rules[i] = deltaRule
-			}
+		for i := len(srcPolicy.Rules) - 1; i >= 0; i-- {
+			srcRule := srcPolicy.Rules[i]
 			if deltaRule.Name == srcRule.Name {
 				isExist = true
-				//if find, delete
+
+				// 跳过automap
+				if srcRule.Name == defaultSnatRule {
+					srcPolicy.Rules[i] = deltaRule
+					continue
+				}
+
 				if isDelete {
+					// 删除rule
 					srcPolicy.Rules = append(srcPolicy.Rules[:i], srcPolicy.Rules[i+1:]...)
 				}
 				break
@@ -1191,7 +1213,41 @@ func clearUpUnreferencePolicy(shareApp map[string]interface{}) {
 	flag1 := map[string]bool{}
 	flag2 := map[string]bool{}
 	for key, value := range shareApp {
-		// todo: bug k8s_snat_policy is not map[string]interface{}
+		// snat policy相关的数据结构与原有ces不同
+		switch key {
+		case defaultSnatPolicy:
+			natPolicy, ok := value.(NatPolicy)
+			if !ok {
+				continue
+			}
+
+			for _, rule := range natPolicy.Rules {
+				if rule.Destination != nil {
+					// dest addr
+					for _, destAddr := range rule.Destination.AddressLists {
+						flag1[getOriginAttrOfUsePath(destAddr.Use)] = true
+					}
+
+					// dest port
+					for _, destPort := range rule.Destination.PortLists {
+						flag1[getOriginAttrOfUsePath(destPort.Use)] = true
+					}
+				}
+
+				if rule.Source != nil {
+					// src addr
+					for _, srcAddr := range rule.Source.AddressLists {
+						flag1[getOriginAttrOfUsePath(srcAddr.Use)] = true
+					}
+				}
+
+				// src translation
+				// automap 命名规则有区别，特殊处理
+				flag1[getLatestUsePath(rule.SourceTranslation.Use)] = true
+			}
+			continue
+		}
+
 		obj, ok := value.(map[string]interface{})
 		if !ok {
 			continue
@@ -1201,45 +1257,6 @@ func clearUpUnreferencePolicy(shareApp map[string]interface{}) {
 			continue
 		}
 		switch class.(string) {
-		case ClassNatPolicy: // nat policy不删
-			natPolicyData, err := json.Marshal(value)
-			if err != nil {
-				klog.Errorf("json.Marshal nat policy error: %s", err.Error())
-				continue
-			}
-			var natPolicy NatPolicy
-			if err = json.Unmarshal(natPolicyData, &natPolicy); err != nil {
-				klog.Errorf("json.Unmarshal nat policy error: %s", err.Error())
-				continue
-			}
-			for _, rule := range natPolicy.Rules {
-				if rule.Destination != nil {
-					if rule.Destination.AddressLists != nil {
-						// dest addr
-						for _, destAddr := range rule.Destination.AddressLists {
-							flag1[getOriginAttrOfUsePath(destAddr.Use)] = true
-						}
-					}
-					if rule.Destination.PortLists != nil {
-						// dest port
-						for _, destPort := range rule.Destination.PortLists {
-							flag1[getOriginAttrOfUsePath(destPort.Use)] = true
-						}
-					}
-				}
-
-				if rule.Source != nil && rule.Source.AddressLists != nil {
-					// src addr
-					for _, srcAddr := range rule.Source.AddressLists {
-						flag1[getOriginAttrOfUsePath(srcAddr.Use)] = true
-					}
-				}
-				// src translation
-				fmt.Println("rule.SourceTranslation.Use: ", rule.SourceTranslation.Use)
-				fmt.Println("getOriginAttrOfUsePath(rule.SourceTranslation.Use): ", getOriginAttrOfUsePath(rule.SourceTranslation.Use))
-				fmt.Println()
-				flag1[getOriginAttrOfUsePath(rule.SourceTranslation.Use)] = true
-			}
 		case ClassFirewallRuleList:
 			rules := obj["rules"].([]interface{})
 			for _, rule := range rules {
@@ -1266,7 +1283,7 @@ func clearUpUnreferencePolicy(shareApp map[string]interface{}) {
 					}
 				}
 			}
-		case ClassFirewallAddressList, ClassFirewallPortList, ClassNatSourceTranslation:
+		case ClassFirewallAddressList, ClassFirewallPortList, ClassNatPolicy:
 			flag2[key] = true
 		case ClassSecurityLogProfile, ClassLogPublisher:
 			if !isConfigLogProfile() {
@@ -1274,6 +1291,7 @@ func clearUpUnreferencePolicy(shareApp map[string]interface{}) {
 			}
 		}
 	}
+
 	for k, _ := range flag2 {
 		if _, ok := flag1[k]; !ok {
 			delete(shareApp, k)

@@ -83,37 +83,33 @@ func (c *Controller) externalIPRuleSyncHandler(key string, eipRule *snat.Externa
 		}
 	}()
 
-	if eipRule != nil {
-		endpointList := &corev1.EndpointsList{
-			Items: make([]corev1.Endpoints, 0, len(eipRule.Spec.Services)),
-		}
-		for _, svcName := range eipRule.Spec.Services {
-			ep, err := c.endpointsLister.Endpoints(eipRule.Namespace).Get(svcName)
-			if err != nil {
-				klog.Errorf("get endpoint %s/%s error: %s", eipRule.Namespace, svcName, err.Error())
-				continue
-			}
-
-			epCopy := ep.DeepCopy()
-			endpointList.Items = append(endpointList.Items, *epCopy)
-		}
-
-		eipRuleCopy := eipRule.DeepCopy()
-		eipRuleList := &snat.ExternalIPRuleList{
-			Items: []snat.ExternalIPRule{
-				*eipRuleCopy,
-			},
-		}
-
-		tntcfg := as3.GetTenantConfigForNamespace(namespace)
-		err = c.as3Client.As3Request(nil, nil, nil, nil, eipRuleList, endpointList, nil,
-			tntcfg, "", isDelete)
+	endpointList := &corev1.EndpointsList{
+		Items: make([]corev1.Endpoints, 0, len(eipRule.Spec.Services)),
+	}
+	for _, svcName := range eipRule.Spec.Services {
+		ep, err := c.endpointsLister.Endpoints(eipRule.Namespace).Get(svcName)
 		if err != nil {
-			klog.Error(err)
-			return err
+			klog.Errorf("get endpoint %s/%s error: %s", eipRule.Namespace, svcName, err.Error())
+			continue
 		}
-	} else {
-		//todo
+
+		epCopy := ep.DeepCopy()
+		endpointList.Items = append(endpointList.Items, *epCopy)
+	}
+
+	eipRuleCopy := eipRule.DeepCopy()
+	eipRuleList := &snat.ExternalIPRuleList{
+		Items: []snat.ExternalIPRule{
+			*eipRuleCopy,
+		},
+	}
+
+	tntcfg := as3.GetTenantConfigForNamespace(namespace)
+	err = c.as3Client.As3Request(nil, nil, nil, nil, eipRuleList, endpointList, nil,
+		tntcfg, "", isDelete)
+	if err != nil {
+		klog.Error(err)
+		return err
 	}
 
 	c.recorder.Event(eipRule, corev1.EventTypeNormal, SuccessSynced, MessageResourceSynced)
