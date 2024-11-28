@@ -147,32 +147,54 @@ func (ac *as3Post) newNatPoliciesDecl(sharedApp as3Application) {
 	// 实际ac.externalIPRuleList.Items就一个数据
 	for _, eipRule := range ac.externalIPRuleList.Items {
 		// dest addr
-		destAddrAttr := getAs3NatRuleListAttr(eipRule.Namespace, eipRule.Name, "dest_addr"+"_"+eipRule.Spec.DestinationMatch.Name)
-		newFirewallAddressList(destAddrAttr, eipRule.Spec.DestinationMatch.Addresses, sharedApp)
+		var destAddrAttr string
+		if len(eipRule.Spec.DestinationMatch.Addresses) > 0 {
+			destAddrAttr = getAs3NatRuleListAttr(eipRule.Namespace, eipRule.Name, "dest_addr"+"_"+eipRule.Spec.DestinationMatch.Name)
+			newFirewallAddressList(destAddrAttr, eipRule.Spec.DestinationMatch.Addresses, sharedApp)
+		}
 
 		// dest port
-		destPortAttr := getAs3NatRuleListAttr(eipRule.Namespace, eipRule.Name, "dest_port"+"_"+eipRule.Spec.DestinationMatch.Name)
-		newFirewallPortsList(destPortAttr, eipRule.Spec.DestinationMatch.Ports.Ports, sharedApp)
+		var destPortAttr string
+		if len(eipRule.Spec.DestinationMatch.Ports.Ports) > 0 {
+			destPortAttr = getAs3NatRuleListAttr(eipRule.Namespace, eipRule.Name, "dest_port"+"_"+eipRule.Spec.DestinationMatch.Name)
+			newFirewallPortsList(destPortAttr, eipRule.Spec.DestinationMatch.Ports.Ports, sharedApp)
+		}
 
 		// src translation
 		srcTransAttr := getAs3NatRuleListAttr(eipRule.Namespace, eipRule.Name, "src_trans")
 		newNatSourceTranslation(srcTransAttr, eipRule.Spec.ExternalAddresses, sharedApp)
 
+		protocol := eipRule.Spec.DestinationMatch.Ports.Protocol
+		if protocol == "" {
+			protocol = "any"
+		}
 		natRule := NatRule{
 			Name:     getAs3NatRuleListAttr(eipRule.Namespace, eipRule.Name, ""),
-			Protocol: eipRule.Spec.DestinationMatch.Ports.Protocol,
+			Protocol: protocol,
 			Source: &Source{
 				AddressLists: make([]Use, 0, len(eipRule.Spec.Services)),
 			},
-			Destination: &Destination{
+			SourceTranslation: Use{Use: getAs3UsePathForPartition(ac.tenantConfig.Name, srcTransAttr)},
+		}
+		if destAddrAttr != "" {
+			natRule.Destination = &Destination{
 				AddressLists: []Use{
 					{Use: getAs3UsePathForPartition(ac.tenantConfig.Name, destAddrAttr)},
 				},
-				PortLists: []Use{
+			}
+		}
+		if destPortAttr != "" {
+			if natRule.Destination != nil {
+				natRule.Destination.PortLists = []Use{
 					{Use: getAs3UsePathForPartition(ac.tenantConfig.Name, destPortAttr)},
-				},
-			},
-			SourceTranslation: Use{Use: getAs3UsePathForPartition(ac.tenantConfig.Name, srcTransAttr)},
+				}
+			} else {
+				natRule.Destination = &Destination{
+					PortLists: []Use{
+						{Use: getAs3UsePathForPartition(ac.tenantConfig.Name, destPortAttr)},
+					},
+				}
+			}
 		}
 
 		// src addr
@@ -1139,6 +1161,8 @@ func natPolicyMergeFullJson(src, delta interface{}, isDelete bool) interface{} {
 				if isDelete {
 					// 删除rule
 					srcPolicy.Rules = append(srcPolicy.Rules[:i], srcPolicy.Rules[i+1:]...)
+				} else {
+					srcPolicy.Rules[i] = deltaRule
 				}
 				break
 			}
