@@ -277,6 +277,7 @@ spec:
                   type: array
                   items:
                     type: string
+                  minItems: 1
                 destinationMatch:
                   type: object
                   properties:
@@ -303,6 +304,7 @@ spec:
                   type: array
                   items:
                     type: string
+                  minItems: 1
 EOF
 echo "-------------------------------"
 echo ""
