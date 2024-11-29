@@ -493,6 +493,8 @@ data:
                          "type": "remote-syslog"
                      }
                  }'
+    externalAddresses:
+      - 10.5.0.20
     tenant:
       ##common partiton config, init AS3 needs
       - name: "Common"
@@ -530,7 +532,7 @@ spec:
       serviceAccountName: ces-controller
       containers:
         - name: ces-controller
-          image: f5devcentral/ces-controller:0.5.3
+          image: f5devcentral/ces-controller:0.6.0
           env:
             - name: CES_NAMESPACE
               value: $CES_NAMESPACE
