@@ -493,7 +493,7 @@ data:
                          "type": "remote-syslog"
                      }
                  }'
-    externalAddresses:
+    externalIPAddresses
       - 10.5.0.20
     tenant:
       ##common partiton config, init AS3 needs
