@@ -535,7 +535,7 @@ spec:
       serviceAccountName: ces-controller
       containers:
         - name: ces-controller
-          image: f5devcentral/ces-controller:0.6.0
+          image: f5devcentral/ces-controller:0.6.1
           env:
             - name: CES_NAMESPACE
               value: $CES_NAMESPACE
