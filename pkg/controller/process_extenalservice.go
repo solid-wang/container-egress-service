@@ -3,8 +3,9 @@ package controller
 import (
 	"context"
 	"fmt"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"strings"
+
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	kubeovn "github.com/kubeovn/ces-controller/pkg/apis/kubeovn.io/v1alpha1"
 	"github.com/kubeovn/ces-controller/pkg/as3"
@@ -77,7 +78,7 @@ func (c *Controller) externalServiceSyncHandler(key string, service *kubeovn.Ext
 		isDelete = true
 		err = nil
 	} else {
-		service = es
+		service = es.DeepCopy()
 	}
 
 	defer func() {
@@ -179,8 +180,19 @@ func (c *Controller) externalServiceSyncHandler(key string, service *kubeovn.Ext
 		}
 		tntcfg = as3.GetTenantConfigForNamespace(service.Namespace)
 	default:
+		if service.DeletionTimestamp != nil {
+			service.Finalizers = nil
+			_, err := c.as3clientset.KubeovnV1alpha1().ExternalServices(service.Namespace).Update(context.Background(), service, metav1.UpdateOptions{})
+			if err != nil {
+				klog.Errorf("failed to update ExternalService [%s/%s],due to: %v", service.Namespace, service.Name, err)
+			}
+		}
 		klog.Info("don,t neet sync!")
 		return nil
+	}
+	if service.DeletionTimestamp != nil {
+		klog.Info("wait egress rule update label!")
+		return fmt.Errorf("ExternalService[%s/%s] is deleting", service.Namespace, service.Name)
 	}
 
 	if len(serviceEgressRuleList.Items) == 0 && len(namespaceEgressRuleList.Items) == 0 && len(clusterEgressruleList.Items) == 0 {

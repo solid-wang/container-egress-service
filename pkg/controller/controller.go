@@ -156,7 +156,8 @@ func NewController(
 			}
 			controller.enqueueExternalService(new)
 		},
-		DeleteFunc: controller.enqueueExternalService,
+		// todo: fix delele egressrule & externalservice bug?
+		// DeleteFunc: controller.enqueueExternalService,
 	})
 
 	clusterEgressRuleInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -246,7 +247,7 @@ func (c *Controller) Run(stopCh <-chan struct{}) error {
 	go wait.Until(c.runExternalIPRuleWorker, 5*time.Second, stopCh)
 
 	klog.Info("Started workers")
-	for i := 0; i < 5; i++ {
+	for i := 0; i < 6; i++ {
 		<-stopCh
 	}
 
@@ -377,7 +378,7 @@ func (c *Controller) isUpdate(old, new interface{}) bool {
 		if oldExt.ResourceVersion == newExt.ResourceVersion {
 			return false
 		}
-		if oldExt.ResourceVersion == newExt.ResourceVersion {
+		if oldExt.ResourceVersion != newExt.ResourceVersion {
 			return true
 		}
 		if !reflect.DeepEqual(oldExt.Spec.Addresses, newExt.Spec.Addresses) {
